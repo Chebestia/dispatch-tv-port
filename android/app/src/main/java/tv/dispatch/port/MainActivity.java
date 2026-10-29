@@ -108,13 +108,13 @@ public class MainActivity extends Activity {
         input.setText(prefs.getString("url", ""));
         new AlertDialog.Builder(this)
             .setTitle("Dispatch TV")
-            .setMessage("Dirección que muestra instalar.ps1 en la PC (\"Dirección para la app\").\n\n"
-                + "Copiar el juego lo guarda en el televisor (unos 4 GB) y después ya no hace falta la PC.")
+            .setMessage("The address instalar.ps1 shows on the PC (\"Address for the app\").\n\n"
+                + "Copy the game stores it on the TV (about 4 GB); after that the PC is no longer needed.")
             .setView(input)
             .setCancelable(local != null) // con el juego ya copiado, Atrás cierra el diálogo y sigue jugando
-            .setPositiveButton("Copiar el juego", (d, w) -> copyPack(server(input)))
-            .setNeutralButton("Jugar desde la PC", (d, w) -> { if (local != null) { local.stop(); local = null; } web.loadUrl(server(input)); })
-            .setNegativeButton("Salir", (d, w) -> finish())
+            .setPositiveButton("Copy the game", (d, w) -> copyPack(server(input)))
+            .setNeutralButton("Play from the PC", (d, w) -> { if (local != null) { local.stop(); local = null; } web.loadUrl(server(input)); })
+            .setNegativeButton("Exit", (d, w) -> finish())
             .show();
     }
 
@@ -151,7 +151,7 @@ public class MainActivity extends Activity {
         if (local != null) { local.stop(); local = null; }
         copying = true;
         showProgress();
-        progress("Conectando con la PC…", 0, 0);
+        progress("Connecting to the PC…", 0, 0);
         new Thread(() -> {
             try {
                 File mark = new File(base, "copiando");
@@ -165,7 +165,7 @@ public class MainActivity extends Activity {
                     if (dst.length() == size) have += size;
                 }
                 long free = base.getUsableSpace();
-                if (total - have > free) throw new IOException(String.format("Falta espacio en el televisor: hacen falta %.1f GB y hay %.1f GB libres.", (total - have) / 1e9, free / 1e9));
+                if (total - have > free) throw new IOException(String.format("Not enough space on the TV: %.1f GB needed, %.1f GB free.", (total - have) / 1e9, free / 1e9));
                 mark.createNewFile();
                 long done = have;
                 long t0 = System.currentTimeMillis();
@@ -183,7 +183,7 @@ public class MainActivity extends Activity {
                     HttpURLConnection c = (HttpURLConnection) new URL(url + path).openConnection();
                     c.setConnectTimeout(15000);
                     c.setReadTimeout(60000);
-                    if (c.getResponseCode() != 200) throw new IOException("La PC respondió " + c.getResponseCode() + " para " + rel);
+                    if (c.getResponseCode() != 200) throw new IOException("The PC answered " + c.getResponseCode() + " for " + rel);
                     try (InputStream in = c.getInputStream(); OutputStream out = new FileOutputStream(part)) {
                         byte[] buf = new byte[1 << 16];
                         int n;
@@ -196,13 +196,13 @@ public class MainActivity extends Activity {
                                 last = now;
                                 double mbs = (done - have) / 1e6 / Math.max(1, (now - t0) / 1000.0);
                                 long left = (long) ((total - done) / 1e6 / Math.max(0.1, mbs) / 60);
-                                progress(String.format("Copiando el juego desde la PC\n%.2f de %.2f GB · %.1f MB/s · faltan ~%d min", done / 1e9, total / 1e9, mbs, left), done, total);
+                                progress(String.format("Copying the game from the PC\n%.2f of %.2f GB · %.1f MB/s · ~%d min left", done / 1e9, total / 1e9, mbs, left), done, total);
                             }
                         }
                     } finally {
                         c.disconnect();
                     }
-                    if (!part.renameTo(dst)) throw new IOException("No se pudo guardar " + rel);
+                    if (!part.renameTo(dst)) throw new IOException("Could not save " + rel);
                 }
                 mark.delete();
                 runOnUiThread(() -> {
@@ -217,11 +217,11 @@ public class MainActivity extends Activity {
                     copying = false;
                     setContentView(web);
                     new AlertDialog.Builder(this)
-                        .setTitle("No se pudo copiar")
-                        .setMessage(msg + "\n\nRevisá que instalar.ps1 siga abierto en la PC. Al reintentar sigue donde quedó.")
+                        .setTitle("Copy failed")
+                        .setMessage(msg + "\n\nCheck that instalar.ps1 is still running on the PC. Retrying resumes where it left off.")
                         .setCancelable(false)
-                        .setPositiveButton("Reintentar", (d, w) -> copyPack(url))
-                        .setNegativeButton("Volver", (d, w) -> askServer())
+                        .setPositiveButton("Retry", (d, w) -> copyPack(url))
+                        .setNegativeButton("Back", (d, w) -> askServer())
                         .show();
                 });
             }

@@ -76,9 +76,9 @@ http.createServer((req, res) => {
   });
 }).listen(PORT, '0.0.0.0', () => {
   const ips = Object.values(os.networkInterfaces()).flat().filter((a) => a.family === 'IPv4' && !a.internal).map((a) => a.address);
-  console.log('\nDispatch TV: dejá esta ventana abierta mientras el televisor copia el paquete.\n');
+  console.log('\nDispatch TV: keep this window open while the TV copies the package.\n');
   for (const ip of ips) {
-    console.log(`  App para el televisor:     http://${ip}:${PORT}/app.apk`);
-    console.log(`  Dirección para la app:     ${ip}:${PORT}\n`);
+    console.log(`  App for the TV:            http://${ip}:${PORT}/app.apk`);
+    console.log(`  Address for the app:       ${ip}:${PORT}\n`);
   }
 });

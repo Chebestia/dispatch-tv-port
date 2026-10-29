@@ -1,12 +1,12 @@
-﻿# Dispatch TV: arma el paquete desde tu copia del juego y lo deja listo para copiarlo al televisor. En PowerShell:
+﻿# Dispatch TV: builds the package from your copy of the game and gets it ready to copy to the TV. In PowerShell:
 #   irm https://raw.githubusercontent.com/Chebestia/dispatch-tv-port/main/instalar.ps1 | iex
-# Qué hace:
-#   1. Busca Dispatch en las bibliotecas de Steam y te pide la clave AES de los paks (una sola vez).
-#   2. Baja lo necesario a %LOCALAPPDATA%\DispatchTV: este repositorio, sus herramientas (pakx, meshx), la app,
-#      Node.js (si no lo tenés), ffmpeg y vgmstream. Nada del juego: todo sale de tu instalación.
-#   3. Arma el paquete (1–2 horas la primera vez; si se corta, volvé a correrlo y sigue donde quedó).
-#   4. Abre el servidor: desde el televisor bajás la app y la app se copia el juego por WiFi.
-# Hace falta ~11 GB libres mientras trabaja; al final quedan ~4 GB. Otra carpeta: $env:DISPATCHTV_CARPETA = 'D:\algo'.
+# What it does:
+#   1. Finds Dispatch in your Steam libraries and asks for the paks' AES key (only once).
+#   2. Downloads what it needs to %LOCALAPPDATA%\DispatchTV: this repository, its tools (pakx, meshx), the app,
+#      Node.js (if missing), ffmpeg and vgmstream. Nothing from the game: everything comes from your installation.
+#   3. Builds the package (1-2 hours the first time; if it stops, run it again and it resumes).
+#   4. Starts the server: the TV downloads the app from it and the app copies the game over Wi-Fi.
+# Needs ~11 GB free while working; ~4 GB remain at the end. Another folder: $env:DISPATCHTV_CARPETA = 'D:\something'.
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
@@ -15,22 +15,22 @@ $Base = if ($env:DISPATCHTV_CARPETA) { $env:DISPATCHTV_CARPETA } else { Join-Pat
 $Bin = Join-Path $Base 'herramientas'
 New-Item -ItemType Directory -Force $Base, $Bin | Out-Null
 
-function Paso($t) { Write-Host "`n== $t" -ForegroundColor Cyan }
-function Bajar($url, $dst) {
-  Write-Host "   bajando $url"
+function Step($t) { Write-Host "`n== $t" -ForegroundColor Cyan }
+function Fetch($url, $dst) {
+  Write-Host "   downloading $url"
   Invoke-WebRequest -UseBasicParsing $url -OutFile "$dst.part"
   Move-Item -Force "$dst.part" $dst
 }
-function Descomprimir($zip, $dst) {
+function Unzip($zip, $dst) {
   if (Test-Path $dst) { Remove-Item $dst -Recurse -Force }
   Expand-Archive $zip $dst -Force
   Remove-Item $zip
 }
 
-# --- el juego ---
-Paso 'Buscando Dispatch'
-$juego = $env:DISPATCHTV_JUEGO
-if (-not $juego) {
+# --- the game ---
+Step 'Looking for Dispatch'
+$game = $env:DISPATCHTV_JUEGO
+if (-not $game) {
   $steam = (Get-ItemProperty 'HKCU:\Software\Valve\Steam' -ErrorAction SilentlyContinue).SteamPath
   $libs = @()
   if ($steam) {
@@ -40,37 +40,37 @@ if (-not $juego) {
   }
   foreach ($l in $libs) {
     $c = Join-Path $l 'steamapps\common\Dispatch'
-    if (Test-Path (Join-Path $c 'Dispatch\Content\Paks')) { $juego = $c; break }
+    if (Test-Path (Join-Path $c 'Dispatch\Content\Paks')) { $game = $c; break }
   }
 }
-while (-not $juego -or -not (Test-Path (Join-Path $juego 'Dispatch\Content\Paks'))) {
-  $juego = (Read-Host 'No encontré Dispatch. Pegá la carpeta del juego (la que contiene Dispatch\Content\Paks)').Trim('"', ' ')
+while (-not $game -or -not (Test-Path (Join-Path $game 'Dispatch\Content\Paks'))) {
+  $game = (Read-Host 'Dispatch not found. Paste the game folder (the one containing Dispatch\Content\Paks)').Trim('"', ' ')
 }
-Write-Host "   $juego"
+Write-Host "   $game"
 
-$claveTxt = Join-Path $Base 'clave.txt'
-$clave = if (Test-Path $claveTxt) { (Get-Content $claveTxt -Raw).Trim() } else { '' }
-while ($clave -notmatch '^(0x)?[0-9A-Fa-f]{64}$') {
-  $clave = (Read-Host 'Clave AES de los paks de Dispatch (64 caracteres hexadecimales, con o sin 0x)').Trim()
+$keyTxt = Join-Path $Base 'clave.txt'
+$key = if (Test-Path $keyTxt) { (Get-Content $keyTxt -Raw).Trim() } else { '' }
+while ($key -notmatch '^(0x)?[0-9A-Fa-f]{64}$') {
+  $key = (Read-Host 'AES key of the Dispatch paks (64 hex characters, with or without 0x)').Trim()
 }
-Set-Content -Encoding ascii $claveTxt $clave
+Set-Content -Encoding ascii $keyTxt $key
 
-# ~11 GB entre lo extraído y el paquete; lo que ya ocupa una corrida anterior cuenta
-$libre = (Get-PSDrive ((Resolve-Path $Base).Drive.Name)).Free / 1GB
-$usado = (Get-ChildItem (Join-Path $Base 'trabajo') -Recurse -File -ErrorAction SilentlyContinue | Measure-Object Length -Sum).Sum / 1GB
-if ($libre + $usado -lt 11) { Write-Host ("Hay {0:N1} GB libres en esa unidad y hacen falta ~{1:N0}. Liberá espacio o usá otra carpeta con `$env:DISPATCHTV_CARPETA." -f $libre, (11 - $usado)) -ForegroundColor Red; return }
+# ~11 GB between the extracted files and the package; space already used by a previous run counts
+$free = (Get-PSDrive ((Resolve-Path $Base).Drive.Name)).Free / 1GB
+$used = (Get-ChildItem (Join-Path $Base 'trabajo') -Recurse -File -ErrorAction SilentlyContinue | Measure-Object Length -Sum).Sum / 1GB
+if ($free + $used -lt 11) { Write-Host ("There are {0:N1} GB free on that drive and ~{1:N0} GB are needed. Free some space or use another folder with `$env:DISPATCHTV_CARPETA." -f $free, (11 - $used)) -ForegroundColor Red; return }
 
-# --- código y herramientas ---
-Paso 'Bajando Dispatch TV y sus herramientas'
-Bajar "https://github.com/$Repo/archive/refs/heads/main.zip" (Join-Path $Base 'codigo.zip')
-Descomprimir (Join-Path $Base 'codigo.zip') (Join-Path $Base 'codigo-zip')
-$codigo = Join-Path $Base 'codigo'
-if (Test-Path $codigo) { Remove-Item $codigo -Recurse -Force }
-Move-Item (Get-ChildItem (Join-Path $Base 'codigo-zip') -Directory | Select-Object -First 1).FullName $codigo
+# --- code and tools ---
+Step 'Downloading Dispatch TV and its tools'
+Fetch "https://github.com/$Repo/archive/refs/heads/main.zip" (Join-Path $Base 'codigo.zip')
+Unzip (Join-Path $Base 'codigo.zip') (Join-Path $Base 'codigo-zip')
+$code = Join-Path $Base 'codigo'
+if (Test-Path $code) { Remove-Item $code -Recurse -Force }
+Move-Item (Get-ChildItem (Join-Path $Base 'codigo-zip') -Directory | Select-Object -First 1).FullName $code
 Remove-Item (Join-Path $Base 'codigo-zip') -Recurse -Force
-Bajar "https://github.com/$Repo/releases/latest/download/herramientas.zip" (Join-Path $Base 'herramientas.zip')
-Descomprimir (Join-Path $Base 'herramientas.zip') (Join-Path $Bin 'dispatch')
-Bajar "https://github.com/$Repo/releases/latest/download/DispatchTV.apk" (Join-Path $Base 'DispatchTV.apk')
+Fetch "https://github.com/$Repo/releases/latest/download/herramientas.zip" (Join-Path $Base 'herramientas.zip')
+Unzip (Join-Path $Base 'herramientas.zip') (Join-Path $Bin 'dispatch')
+Fetch "https://github.com/$Repo/releases/latest/download/DispatchTV.apk" (Join-Path $Base 'DispatchTV.apk')
 
 $node = (Get-Command node -ErrorAction SilentlyContinue).Source
 if ($node -and [int]((& $node --version) -replace '^v(\d+).*', '$1') -lt 18) { $node = $null }
@@ -78,41 +78,41 @@ if (-not $node) {
   $node = Get-ChildItem (Join-Path $Bin 'node') -Recurse -Filter node.exe -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty FullName
   if (-not $node) {
     $v = (Invoke-RestMethod 'https://nodejs.org/dist/index.json' | Where-Object { $_.lts -and $_.files -contains 'win-x64-zip' } | Select-Object -First 1).version
-    Bajar "https://nodejs.org/dist/$v/node-$v-win-x64.zip" (Join-Path $Bin 'node.zip')
-    Descomprimir (Join-Path $Bin 'node.zip') (Join-Path $Bin 'node')
+    Fetch "https://nodejs.org/dist/$v/node-$v-win-x64.zip" (Join-Path $Bin 'node.zip')
+    Unzip (Join-Path $Bin 'node.zip') (Join-Path $Bin 'node')
     $node = Get-ChildItem (Join-Path $Bin 'node') -Recurse -Filter node.exe | Select-Object -First 1 -ExpandProperty FullName
   }
 }
 $ffmpeg = Get-ChildItem (Join-Path $Bin 'ffmpeg') -Recurse -Filter ffmpeg.exe -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty FullName
 if (-not $ffmpeg) {
-  Bajar 'https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip' (Join-Path $Bin 'ffmpeg.zip')
-  Descomprimir (Join-Path $Bin 'ffmpeg.zip') (Join-Path $Bin 'ffmpeg')
+  Fetch 'https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip' (Join-Path $Bin 'ffmpeg.zip')
+  Unzip (Join-Path $Bin 'ffmpeg.zip') (Join-Path $Bin 'ffmpeg')
   $ffmpeg = Get-ChildItem (Join-Path $Bin 'ffmpeg') -Recurse -Filter ffmpeg.exe | Select-Object -First 1 -ExpandProperty FullName
 }
 $vgm = Join-Path $Bin 'vgmstream\vgmstream-cli.exe'
 if (-not (Test-Path $vgm)) {
-  Bajar 'https://github.com/vgmstream/vgmstream/releases/latest/download/vgmstream-win64.zip' (Join-Path $Bin 'vgmstream.zip')
-  Descomprimir (Join-Path $Bin 'vgmstream.zip') (Join-Path $Bin 'vgmstream')
+  Fetch 'https://github.com/vgmstream/vgmstream/releases/latest/download/vgmstream-win64.zip' (Join-Path $Bin 'vgmstream.zip')
+  Unzip (Join-Path $Bin 'vgmstream.zip') (Join-Path $Bin 'vgmstream')
 }
 
-# --- paquete ---
-Paso 'Armando el paquete desde tu copia del juego (la primera vez tarda 1–2 horas)'
+# --- package ---
+Step 'Building the package from your copy of the game (1-2 hours the first time)'
 $env:DTV_PAKX = Join-Path $Bin 'dispatch\pakx.exe'
 $env:DTV_MESHX = Join-Path $Bin 'dispatch\meshx.exe'
 $env:DTV_FFMPEG = $ffmpeg
 $env:DTV_VGM = $vgm
-$trabajo = Join-Path $Base 'trabajo'
-& $node (Join-Path $codigo 'tools\build.js') $juego $clave $trabajo
-if ($LASTEXITCODE) { Write-Host 'El armado no terminó. Volvé a correr el comando: sigue donde quedó.' -ForegroundColor Red; return }
+$work = Join-Path $Base 'trabajo'
+& $node (Join-Path $code 'tools\build.js') $game $key $work
+if ($LASTEXITCODE) { Write-Host 'The build did not finish. Run the command again: it resumes where it left off.' -ForegroundColor Red; return }
 
-# --- servidor para el televisor ---
-Paso 'Listo. Ahora, en el televisor:'
+# --- server for the TV ---
+Step 'Done. Now, on the TV:'
 Write-Host @'
-   1. Instalá la app "Downloader" (de AFTVnews) desde Google Play y abrila.
-   2. Escribí la dirección "App para el televisor" que aparece abajo e instalá Dispatch TV
-      (la primera vez el televisor pide permitir instalar apps desde Downloader).
-   3. Abrí Dispatch TV, escribí la "Dirección para la app" y elegí "Copiar el juego".
-   Si Windows pregunta por el firewall, permití el acceso en redes privadas.
-   Cuando el televisor termine de copiar, cerrá esta ventana.
+   1. Install the "Downloader" app (by AFTVnews) from Google Play and open it.
+   2. Type the "App for the TV" address shown below and install Dispatch TV
+      (the first time, the TV asks you to allow installing apps from Downloader).
+   3. Open Dispatch TV, type the "Address for the app" and choose "Copy the game".
+   If Windows asks about the firewall, allow access on private networks.
+   When the TV finishes copying, close this window.
 '@
-& $node (Join-Path $codigo 'tools\servidor.js') (Join-Path $trabajo 'web') (Join-Path $Base 'DispatchTV.apk')
+& $node (Join-Path $code 'tools\servidor.js') (Join-Path $work 'web') (Join-Path $Base 'DispatchTV.apk')

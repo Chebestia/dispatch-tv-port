@@ -12,7 +12,7 @@ const { execFileSync } = require('child_process');
 
 const [GAME, KEY, WORK] = process.argv.slice(2);
 const PRUEBA = process.argv.includes('--prueba');
-if (!GAME || !KEY || !WORK) { console.error('uso: node build.js <carpetaDelJuego> <claveAES> <carpetaDeTrabajo>'); process.exit(1); }
+if (!GAME || !KEY || !WORK) { console.error('usage: node build.js <gameFolder> <aesKey> <workFolder>'); process.exit(1); }
 const PAKS = path.join(GAME, 'Dispatch', 'Content', 'Paks');
 const ROOT = path.resolve(WORK);
 const OUT = path.join(ROOT, 'web');
@@ -38,7 +38,7 @@ function step(name, fn) {
   fs.writeFileSync(mark, '');
 }
 
-if (!fs.existsSync(PAKS)) { console.error(`No está ${PAKS}: ¿es la carpeta del juego?`); process.exit(1); }
+if (!fs.existsSync(PAKS)) { console.error(`${PAKS} not found: is that the game folder?`); process.exit(1); }
 
 // --- archivos del juego ---
 step('inventario', () => node('pakinv.js', PAKS, KEY, INVENTORY));
@@ -120,7 +120,7 @@ for (const f of JSON.parse(fs.readFileSync(INVENTORY)).files) {
 }
 const mp4 = (v) => path.join(OUT, 'movies', v.replace(/\.webm$/, '.mp4'));
 const todo = [...videos].filter((v) => !fs.existsSync(mp4(v))).slice(0, PRUEBA ? 6 : Infinity);
-log(`videos: ${videos.size}, faltan ${todo.length}`);
+log(`videos: ${videos.size}, ${todo.length} to do`);
 const SRC = path.join(W, 'videos');
 const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const tv = Date.now();
@@ -129,10 +129,10 @@ for (let i = 0; i < todo.length; i += 25) {
   const batch = todo.slice(i, i + 25);
   fs.rmSync(SRC, { recursive: true, force: true });
   const re = `^Dispatch/Content/Movies/(${batch.map((v) => esc(real.get(v.toLowerCase()) || v)).join('|')})$`;
-  try { execFileSync(PAKX, [PAKS, KEY, INVENTORY, SRC, re], { stdio: 'ignore', windowsHide: true }); } catch (e) { console.log('  pakx falló:', e.message.split('\n')[0]); }
+  try { execFileSync(PAKX, [PAKS, KEY, INVENTORY, SRC, re], { stdio: 'ignore', windowsHide: true }); } catch (e) { console.log('  pakx failed:', e.message.split('\n')[0]); }
   for (const v of batch) {
     const src = path.join(SRC, 'Dispatch', 'Content', 'Movies', real.get(v.toLowerCase()) || v);
-    if (!fs.existsSync(src)) { console.log('  no se pudo extraer', v); failed++; continue; }
+    if (!fs.existsSync(src)) { console.log('  could not extract', v); failed++; continue; }
     const dst = mp4(v);
     fs.mkdirSync(path.dirname(dst), { recursive: true });
     // 720p (sin agrandar los más chicos), mismos tiempos que el original (el reproductor sincroniza con currentTime),
@@ -142,16 +142,16 @@ for (let i = 0; i < todo.length; i += 25) {
         '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '23', '-profile:v', 'high', '-level', '4.0', '-pix_fmt', 'yuv420p', '-g', '60',
         '-fps_mode', 'passthrough', '-c:a', 'aac', '-b:a', '128k', '-movflags', '+faststart', `${dst}.tmp.mp4`], { stdio: 'inherit' });
       fs.renameSync(`${dst}.tmp.mp4`, dst);
-    } catch (e) { console.log('  falló la recodificación', v); failed++; }
+    } catch (e) { console.log('  re-encoding failed', v); failed++; }
   }
   fs.rmSync(SRC, { recursive: true, force: true });
   const min = (Date.now() - tv) / 60000, done = Math.min(i + 25, todo.length);
-  log(`videos ${done}/${todo.length} (faltan ~${((min / done) * (todo.length - done)).toFixed(0)} min)`);
+  log(`videos ${done}/${todo.length} (~${((min / done) * (todo.length - done)).toFixed(0)} min left)`);
 }
 
-if (failed) { console.log(`\n${failed} videos fallaron: volvé a correrlo para reintentarlos.`); process.exit(2); }
+if (failed) { console.log(`\n${failed} videos failed: run it again to retry them.`); process.exit(2); }
 // los archivos extraídos ya no hacen falta (el inventario queda para el servidor)
 if (!PRUEBA && !process.argv.includes('--conservar')) fs.rmSync(EXTRACT, { recursive: true, force: true });
 let total = 0;
 (function walk(d) { for (const f of fs.readdirSync(d, { withFileTypes: true })) { const p = path.join(d, f.name); if (f.isDirectory()) walk(p); else total += fs.statSync(p).size; } })(OUT);
-log(`listo: paquete de ${(total / 1e9).toFixed(2)} GB en ${OUT}`);
+log(`done: ${(total / 1e9).toFixed(2)} GB package in ${OUT}`);

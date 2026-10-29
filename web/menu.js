@@ -518,7 +518,7 @@ function renderSettings(c, done) {
     if (it.info) {
       row.className = 'mn-set-info';
       // televisor: el control remoto (la app de Android TV traduce OK a Enter y Atrás a Escape)
-      row.innerHTML = '<p><b>Control remoto</b></p><p>◀ ▲ ▶ · marcar una respuesta</p><p>OK · elegir</p><p>Atrás · pausa / volver</p><p>Flechas · moverse por los menús</p><p>Menú · copiar el juego de nuevo o jugar desde la PC</p>';
+      row.innerHTML = '<p><b>Remote</b></p><p>◀ ▲ ▶ · highlight an answer</p><p>OK · select</p><p>Back · pause / go back</p><p>Arrows · move through menus</p><p>Menu · copy the game again or play from the PC</p>';
       list.appendChild(row); continue;
     }
     row.className = 'mn-set-row';
