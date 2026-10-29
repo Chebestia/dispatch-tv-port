@@ -1,0 +1,12 @@
+[package]
+name = "pakx"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+aes = "0.8"
+flate2 = "1"
+oozextract = { path = "../oozextract" }
+regex = "1"
+serde_json = "1"
+

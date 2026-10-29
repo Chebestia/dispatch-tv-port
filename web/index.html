@@ -1,0 +1,36 @@
+﻿<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dispatch TV</title>
+<link rel="stylesheet" href="style.css">
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }
+</script>
+</head>
+<body>
+<div id="stage">
+  <video id="v0" playsinline preload="auto"></video>
+  <video id="v1" playsinline preload="auto"></video>
+  <div id="subs"></div>
+  <div id="choice" hidden>
+    <div id="options"></div>
+    <div id="timer"><div></div></div>
+  </div>
+  <div id="qte" hidden><div class="ring"></div><div class="key">ESPACIO</div></div>
+  <div id="card" hidden></div>
+  <div id="start" hidden></div>
+  <div id="debug" hidden></div>
+</div>
+<script src="saves.js"></script>
+<script src="censor.js"></script>
+<script src="prompts.js"></script>
+<script src="player.js"></script>
+<script src="tvnav.js"></script>
+<script type="module" src="menu.js"></script>
+</body>
+</html>

@@ -1,0 +1,17 @@
+# compilación
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+tools/pakx/target/
+tools/meshx/bin/
+tools/meshx/obj/
+# nunca subir nada del juego ni la clave
+clave.txt
+aes.txt
+*.pak
+*.utoc
+*.ucas
+pack/
+trabajo/
+work/
